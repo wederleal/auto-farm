@@ -1,73 +1,84 @@
+-- ===============================
+-- AUTO UNDINE FIND + TWEEN
+-- ===============================
+
+print("🔥 Autofarm Undine iniciado")
+
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
-local player = Players.LocalPlayer
 
+local player = Players.LocalPlayer
 local character = player.Character or player.CharacterAdded:Wait()
 local hrp = character:WaitForChild("HumanoidRootPart")
 
-local ClientMonsters = workspace:WaitForChild("ClientMonsters")
+-- pasta correta dos monstros (onde você confirmou)
+local Monsters = workspace:WaitForChild("Monsters")
 
--- tolerância para comparação de size (IMPORTANTÍSSIMO)
-local TOLERANCE = 0.1
+-- ===============================
+-- IDENTIFICAÇÃO DO UNDINE (POR FAIXA)
+-- ===============================
+local function isUndine(monster)
+    if not monster:IsA("Model") then return false end
 
-local TARGET_SIZE = Vector3.new(
-    3.758700370788574,
-    4.6298980712890625,
-    4.722216606140137
-)
+    local success, cf, size = pcall(function()
+        local c, s = monster:GetBoundingBox()
+        return true, c, s
+    end)
 
-local function sizeEquals(a, b)
-    return math.abs(a.X - b.X) <= TOLERANCE
-       and math.abs(a.Y - b.Y) <= TOLERANCE
-       and math.abs(a.Z - b.Z) <= TOLERANCE
+    if not success then return false end
+
+    return
+        size.X > 3.0 and size.X < 3.5 and
+        size.Y > 9.2 and size.Y < 9.8 and
+        size.Z > 10.2 and size.Z < 10.8
 end
 
--- encontra o monstro mais próximo com esse size
-local function findNearestMonster()
-    local closestMonster = nil
-    local shortestDistance = math.huge
-
-    for _, monster in ipairs(ClientMonsters:GetChildren()) do
-        if monster:IsA("Model") then
-            local cf, size = monster:GetBoundingBox()
-
-            if sizeEquals(size, TARGET_SIZE) then
-                local distance = (hrp.Position - cf.Position).Magnitude
-
-                if distance < shortestDistance then
-                    shortestDistance = distance
-                    closestMonster = monster
-                end
-            end
-        end
-    end
-
-    return closestMonster
-end
-
--- tween até o monstro
-local function tweenToMonster(monster)
+-- ===============================
+-- TWEEN ATÉ O UNDINE
+-- ===============================
+local function tweenToUndine(monster)
     local cf, _ = monster:GetBoundingBox()
-    local targetPosition = cf.Position + Vector3.new(0, 0, -3)
+    local targetPos = cf.Position + Vector3.new(0, 0, -6)
 
-    local distance = (hrp.Position - targetPosition).Magnitude
-    local time = distance / 60 -- velocidade ajustável
+    local distance = (hrp.Position - targetPos).Magnitude
+    local time = distance / 70
 
     local tween = TweenService:Create(
         hrp,
         TweenInfo.new(time, Enum.EasingStyle.Linear),
-        {CFrame = CFrame.new(targetPosition)}
+        {CFrame = CFrame.new(targetPos)}
     )
 
     tween:Play()
 end
 
--- execução
-local monster = findNearestMonster()
-
-if monster then
-    print("✅ Monstro encontrado:", monster.Name)
-    tweenToMonster(monster)
-else
-    print("❌ Nenhum monstro com esse size encontrado")
+-- ===============================
+-- PROCURA UNDINE JÁ SPAWNADO
+-- ===============================
+local function findExistingUndine()
+    for _, monster in ipairs(Monsters:GetChildren()) do
+        if isUndine(monster) then
+            print("🔥 UNDINE ENCONTRADO:", monster.Name)
+            tweenToUndine(monster)
+            return true
+        end
+    end
+    return false
 end
+
+-- tenta achar imediatamente
+if not findExistingUndine() then
+    print("⏳ Undine não está no mapa, aguardando spawn...")
+end
+
+-- ===============================
+-- DETECTA QUANDO O UNDINE SPAWNAR
+-- ===============================
+Monsters.ChildAdded:Connect(function(monster)
+    task.wait(0.4) -- deixa estabilizar o BoundingBox
+
+    if isUndine(monster) then
+        print("🔥 UNDINE SPAWNOU:", monster.Name)
+        tweenToUndine(monster)
+    end
+end)
