@@ -1,90 +1,73 @@
-print("AUTO FARM - TideVex INICIADO")
-
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
-
 local player = Players.LocalPlayer
+
 local character = player.Character or player.CharacterAdded:Wait()
 local hrp = character:WaitForChild("HumanoidRootPart")
 
 local ClientMonsters = workspace:WaitForChild("ClientMonsters")
 
--- CONFIG
-local TARGET_NAME = "TideVex"
-local TWEEN_SPEED = 120 -- quanto maior, mais rápido
+-- tolerância para comparação de size (IMPORTANTÍSSIMO)
+local TOLERANCE = 0.1
 
--- pega o nome visível (BillboardGui)
-local function getVisibleMonsterName(monster)
-    local gui = monster:FindFirstChildWhichIsA("BillboardGui", true)
-    if gui then
-        local label = gui:FindFirstChildWhichIsA("TextLabel", true)
-        if label and label.Text ~= "" then
-            return label.Text
-        end
-    end
-    return nil
+local TARGET_SIZE = Vector3.new(
+    3.758700370788574,
+    4.6298980712890625,
+    4.722216606140137
+)
+
+local function sizeEquals(a, b)
+    return math.abs(a.X - b.X) <= TOLERANCE
+       and math.abs(a.Y - b.Y) <= TOLERANCE
+       and math.abs(a.Z - b.Z) <= TOLERANCE
 end
 
--- verifica se o monster está vivo
-local function isAlive(monster)
-    local hum = monster:FindFirstChildOfClass("Humanoid")
-    return hum and hum.Health > 0
-end
-
--- pega a posição do monster
-local function getRoot(monster)
-    return monster:FindFirstChild("HumanoidRootPart")
-        or monster.PrimaryPart
-end
-
--- encontra o TideVex mais próximo
-local function getNearestTideVex()
-    local closest, closestDist = nil, math.huge
+-- encontra o monstro mais próximo com esse size
+local function findNearestMonster()
+    local closestMonster = nil
+    local shortestDistance = math.huge
 
     for _, monster in ipairs(ClientMonsters:GetChildren()) do
         if monster:IsA("Model") then
-            local name = getVisibleMonsterName(monster)
-            if name == TARGET_NAME and isAlive(monster) then
-                local root = getRoot(monster)
-                if root then
-                    local dist = (hrp.Position - root.Position).Magnitude
-                    if dist < closestDist then
-                        closestDist = dist
-                        closest = monster
-                    end
+            local cf, size = monster:GetBoundingBox()
+
+            if sizeEquals(size, TARGET_SIZE) then
+                local distance = (hrp.Position - cf.Position).Magnitude
+
+                if distance < shortestDistance then
+                    shortestDistance = distance
+                    closestMonster = monster
                 end
             end
         end
     end
 
-    return closest
+    return closestMonster
 end
 
--- move até o monster com Tween
-local function tweenTo(cf)
-    local distance = (hrp.Position - cf.Position).Magnitude
-    local time = distance / TWEEN_SPEED
+-- tween até o monstro
+local function tweenToMonster(monster)
+    local cf, _ = monster:GetBoundingBox()
+    local targetPosition = cf.Position + Vector3.new(0, 0, -3)
+
+    local distance = (hrp.Position - targetPosition).Magnitude
+    local time = distance / 60 -- velocidade ajustável
 
     local tween = TweenService:Create(
         hrp,
         TweenInfo.new(time, Enum.EasingStyle.Linear),
-        { CFrame = cf }
+        {CFrame = CFrame.new(targetPosition)}
     )
+
     tween:Play()
-    tween.Completed:Wait()
 end
 
--- LOOP PRINCIPAL
-task.spawn(function()
-    while task.wait(0.5) do
-        local target = getNearestTideVex()
-        if target then
-            local root = getRoot(target)
-            if root then
-                tweenTo(root.CFrame * CFrame.new(0, 0, -4)) -- para um pouco atrás
-                -- aqui seus PETS atacam automaticamente
-                repeat task.wait(0.3) until not isAlive(target)
-            end
-        end
-    end
-end)
+-- execução
+local monster = findNearestMonster()
+
+if monster then
+    print("✅ Monstro encontrado:", monster.Name)
+    tweenToMonster(monster)
+else
+    print("❌ Nenhum monstro com esse size encontrado")
+end
