@@ -1,48 +1,49 @@
-local TweenService = game:GetService("TweenService")
 local Players = game:GetService("Players")
-local ClientMonsters = workspace:WaitForChild("ClientMonsters")
+local ClientMonsters = workspace:GetService("Workspace"):WaitForChild("ClientMonsters")
 
 local player = Players.LocalPlayer
-local velocidade = 50 -- Ajuste a velocidade aqui (maior = mais rápido)
-
-local function getTweenTime(distancia)
-    return distancia / velocidade
-end
+local velocidade = 70 -- Aumentei para 70 para ser mais eficiente
+local distanciaDeParada = 3 -- Distância para os pets atacarem
 
 local function irAteOMonstro()
     while true do
-        -- Busca o primeiro monstro disponível na pasta
+        -- Busca o monstro mais próximo ou o primeiro da lista
         local monstro = ClientMonsters:FindFirstChildOfClass("Model") or ClientMonsters:FindFirstChildOfClass("Part")
 
         if monstro then
             local rootPart = monstro:FindFirstChild("HumanoidRootPart") or monstro.PrimaryPart or monstro:FindFirstChildOfClass("Part")
-            local myRoot = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+            
+            -- Loop de perseguição enquanto o monstro existir na pasta
+            while monstro and monstro.Parent == ClientMonsters do
+                local myRoot = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+                if not myRoot or not rootPart then break end
 
-            if rootPart and myRoot then
-                -- Calcula distância e tempo
-                local distancia = (myRoot.Position - rootPart.Position).Magnitude
-                local info = TweenInfo.new(getTweenTime(distancia), Enum.EasingStyle.Linear)
-                
-                -- Cria e executa o movimento
-                local tween = TweenService:Create(myRoot, info, {CFrame = rootPart.CFrame * CFrame.new(0, 0, 3)})
-                tween:Play()
+                local alvoPos = rootPart.Position
+                local minhaPos = myRoot.Position
+                local direcao = (alvoPos - minhaPos)
+                local distancia = direcao.Magnitude
 
-                -- Espera o monstro morrer/sumir ou o tween acabar
-                repeat 
-                    task.wait(0.1) 
-                until not monstro:IsDescendantOf(ClientMonsters) or not monstro.Parent
+                -- Se ainda estiver longe, continua movendo
+                if distancia > distanciaDeParada then
+                    -- Move o CFrame suavemente na direção do monstro
+                    myRoot.CFrame = CFrame.new(minhaPos + (direcao.Unit * (velocidade * task.wait())), alvoPos)
+                else
+                    -- Se chegou perto, apenas encara o monstro e espera ele morrer
+                    myRoot.CFrame = CFrame.new(minhaPos, alvoPos)
+                    task.wait() 
+                end
                 
-                tween:Cancel() -- Para o movimento se o monstro sumir antes de chegar
-                print("Monstro derrotado ou sumiu, buscando próximo...")
+                -- Se o monstro sumir durante o trajeto, sai deste loop interno
+                if not monstro:IsDescendantOf(ClientMonsters) then break end
             end
+            print("🎯 Alvo eliminado ou sumiu, procurando próximo...")
         else
-            -- Se não houver monstro, espera um pouco antes de checar de novo
-            task.wait(1)
+            task.wait(0.5) -- Espera rápida se a pasta estiver vazia
         end
     end
 end
 
--- Inicia o loop em uma thread separada
+-- Inicia a perseguição
 task.spawn(irAteOMonstro)
 
-print("🚀 Script de Auto-Tween ativado!")
+print("🚀 Perseguição em Tempo Real Ativada!")
