@@ -1,76 +1,45 @@
-print("AUTO FARM LOADSTRING INICIADO")
+print("AUTO REJOIN PRIVATE SERVER - INICIADO")
 
 local Players = game:GetService("Players")
-local TweenService = game:GetService("TweenService")
-local Workspace = game:GetService("Workspace")
+local TeleportService = game:GetService("TeleportService")
+local GuiService = game:GetService("GuiService")
 
 local player = Players.LocalPlayer
-if not player then return end
+local PLACE_ID = game.PlaceId
 
-local character = player.Character or player.CharacterAdded:Wait()
-local hrp = character:WaitForChild("HumanoidRootPart")
+-- CAPTURA O ACCESS CODE DO TELEPORT DATA
+local teleportData = TeleportService:GetLocalPlayerTeleportData()
+local ACCESS_CODE = nil
 
-local monsterFolder
-repeat
-    monsterFolder = Workspace:FindFirstChild("ClientMonsters")
-    task.wait(1)
-until monsterFolder
-
-print("ClientMonsters encontrado")
-
-local SPEED = 100
-
-local function getMonsterPart(monster)
-    if monster:IsA("Model") then
-        return monster:FindFirstChildWhichIsA("BasePart", true)
-    elseif monster:IsA("BasePart") then
-        return monster
-    end
+if teleportData then
+    ACCESS_CODE = teleportData.PrivateServerId or teleportData.accessCode
 end
 
-local function getClosestMonster()
-    local closest = nil
-    local shortest = math.huge
-
-    for _, monster in ipairs(monsterFolder:GetChildren()) do
-        local part = getMonsterPart(monster)
-        if part then
-            local dist = (hrp.Position - part.Position).Magnitude
-            if dist < shortest then
-                shortest = dist
-                closest = monster
-            end
-        end
-    end
-
-    return closest
+if not ACCESS_CODE then
+    warn("ACCESS CODE NÃO ENCONTRADO! Entre pelo link do servidor privado primeiro.")
+    return
 end
 
-local function tweenToMonster(monster)
-    local part = getMonsterPart(monster)
-    if not part then return end
+print("AccessCode capturado:", ACCESS_CODE)
 
-    local distance = (hrp.Position - part.Position).Magnitude
-    local time = distance / SPEED
-
-    print("Indo para:", monster.Name)
-
-    local tween = TweenService:Create(
-        hrp,
-        TweenInfo.new(time, Enum.EasingStyle.Linear),
-        { CFrame = part.CFrame }
+local function rejoin()
+    task.wait(2)
+    print("Reentrando no servidor privado...")
+    TeleportService:TeleportToPrivateServer(
+        PLACE_ID,
+        ACCESS_CODE,
+        { player }
     )
-
-    tween:Play()
-    tween.Completed:Wait()
 end
 
-while task.wait(0.5) do
-    local monster = getClosestMonster()
-    if monster then
-        tweenToMonster(monster)
-        while monster.Parent do
-            task.wait(0.1)
-        end
+-- SE TELEPORT FALHAR
+player.OnTeleport:Connect(function(state)
+    if state == Enum.TeleportState.Failed then
+        rejoin()
     end
-end
+end)
+
+-- SE DER ERRO / DESCONECTAR
+GuiService.ErrorMessageChanged:Connect(function()
+    rejoin()
+end)
