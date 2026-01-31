@@ -1,84 +1,40 @@
--- ===============================
--- AUTO UNDINE FIND + TWEEN
--- ===============================
+local ClientMonsters = workspace:WaitForChild("ClientMonsters")
+local nomeAlvo = "Undine"
 
-print("🔥 Autofarm Undine iniciado")
-
-local Players = game:GetService("Players")
-local TweenService = game:GetService("TweenService")
-
-local player = Players.LocalPlayer
-local character = player.Character or player.CharacterAdded:Wait()
-local hrp = character:WaitForChild("HumanoidRootPart")
-
--- pasta correta dos monstros (onde você confirmou)
-local Monsters = workspace:WaitForChild("Monsters")
-
--- ===============================
--- IDENTIFICAÇÃO DO UNDINE (POR FAIXA)
--- ===============================
-local function isUndine(monster)
-    if not monster:IsA("Model") then return false end
-
-    local success, cf, size = pcall(function()
-        local c, s = monster:GetBoundingBox()
-        return true, c, s
-    end)
-
-    if not success then return false end
-
-    return
-        size.X > 3.0 and size.X < 3.5 and
-        size.Y > 9.2 and size.Y < 9.8 and
-        size.Z > 10.2 and size.Z < 10.8
-end
-
--- ===============================
--- TWEEN ATÉ O UNDINE
--- ===============================
-local function tweenToUndine(monster)
-    local cf, _ = monster:GetBoundingBox()
-    local targetPos = cf.Position + Vector3.new(0, 0, -6)
-
-    local distance = (hrp.Position - targetPos).Magnitude
-    local time = distance / 70
-
-    local tween = TweenService:Create(
-        hrp,
-        TweenInfo.new(time, Enum.EasingStyle.Linear),
-        {CFrame = CFrame.new(targetPos)}
-    )
-
-    tween:Play()
-end
-
--- ===============================
--- PROCURA UNDINE JÁ SPAWNADO
--- ===============================
-local function findExistingUndine()
-    for _, monster in ipairs(Monsters:GetChildren()) do
-        if isUndine(monster) then
-            print("🔥 UNDINE ENCONTRADO:", monster.Name)
-            tweenToUndine(monster)
+local function verificarSeEhUndine(objeto)
+    -- Espera um pouco para garantir que as propriedades internas carregaram
+    local humanoid = objeto:WaitForChild("Humanoid", 2)
+    
+    if humanoid then
+        -- Verifica o DisplayName (o nome que aparece no jogo)
+        if humanoid.DisplayName == nomeAlvo then
+            print("🚨 A Undine apareceu! Identificada como: " .. objeto.Name)
             return true
         end
     end
-    return false
+    
+    -- Caso o nome esteja em um BillboardGui (outro método comum)
+    local billboard = objeto:FindFirstChildOfClass("BillboardGui", true)
+    if billboard then
+        local textLabel = billboard:FindFirstChildOfClass("TextLabel", true)
+        if textLabel and textLabel.Text == nomeAlvo then
+            print("🚨 A Undine apareceu (detectada via BillboardGui)!")
+            return true
+        end
+    end
 end
 
--- tenta achar imediatamente
-if not findExistingUndine() then
-    print("⏳ Undine não está no mapa, aguardando spawn...")
-end
-
--- ===============================
--- DETECTA QUANDO O UNDINE SPAWNAR
--- ===============================
-Monsters.ChildAdded:Connect(function(monster)
-    task.wait(0.4) -- deixa estabilizar o BoundingBox
-
-    if isUndine(monster) then
-        print("🔥 UNDINE SPAWNOU:", monster.Name)
-        tweenToUndine(monster)
+-- Monitora novos monstros na pasta
+ClientMonsters.ChildAdded:Connect(function(child)
+    -- Primeiro filtramos se é um "Monster_..."
+    if string.find(child.Name, "Monster_") then
+        verificarSeEhUndine(child)
     end
 end)
+
+-- Verifica se ela já está lá quando o script inicia
+for _, atual in ipairs(ClientMonsters:GetChildren()) do
+    if string.find(atual.Name, "Monster_") then
+        verificarSeEhUndine(atual)
+    end
+end
