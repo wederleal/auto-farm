@@ -7,20 +7,23 @@ local GuiService = game:GetService("GuiService")
 local player = Players.LocalPlayer
 local PLACE_ID = game.PlaceId
 
--- CAPTURA O ACCESS CODE DO TELEPORT DATA
-local teleportData = TeleportService:GetLocalPlayerTeleportData()
+-- CAPTURA DADOS DE ENTRADA
+local joinData = player:GetJoinData()
+local teleportData = joinData and joinData.TeleportData
+
 local ACCESS_CODE = nil
 
 if teleportData then
-    ACCESS_CODE = teleportData.PrivateServerId or teleportData.accessCode
+    ACCESS_CODE = teleportData.PrivateServerId
 end
 
 if not ACCESS_CODE then
-    warn("ACCESS CODE NÃO ENCONTRADO! Entre pelo link do servidor privado primeiro.")
+    warn("ACCESS CODE NÃO ENCONTRADO.")
+    warn("Entre pelo link do servidor privado e execute o script APÓS carregar o jogo.")
     return
 end
 
-print("AccessCode capturado:", ACCESS_CODE)
+print("AccessCode capturado com sucesso:", ACCESS_CODE)
 
 local function rejoin()
     task.wait(2)
@@ -39,7 +42,7 @@ player.OnTeleport:Connect(function(state)
     end
 end)
 
--- SE DER ERRO / DESCONECTAR
+-- SE DESCONECTAR / ERRO
 GuiService.ErrorMessageChanged:Connect(function()
     rejoin()
 end)
