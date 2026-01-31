@@ -1,40 +1,44 @@
-local ClientMonsters = workspace:WaitForChild("ClientMonsters")
+local ClientMonsters = workspace:GetService("Workspace"):WaitForChild("ClientMonsters")
 local nomeAlvo = "Undine"
 
-local function verificarSeEhUndine(objeto)
-    -- Espera um pouco para garantir que as propriedades internas carregaram
-    local humanoid = objeto:WaitForChild("Humanoid", 2)
-    
-    if humanoid then
-        -- Verifica o DisplayName (o nome que aparece no jogo)
-        if humanoid.DisplayName == nomeAlvo then
-            print("🚨 A Undine apareceu! Identificada como: " .. objeto.Name)
-            return true
-        end
+print("🔍 Script de detecção iniciado...")
+
+local function destacarMonstro(modelo)
+    -- Cria um brilho ao redor do monstro para você ver através das paredes
+    local highlight = Instance.new("Highlight")
+    highlight.FillColor = Color3.fromRGB(255, 0, 0) -- Vermelho
+    highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
+    highlight.Parent = modelo
+    print("🎯 UNDINE DETECTADA: " .. modelo.Name)
+end
+
+local function checarTudo(objeto)
+    -- 1. Checa o nome do próprio objeto
+    if string.find(objeto.Name, nomeAlvo) then
+        destacarMonstro(objeto)
+        return
     end
-    
-    -- Caso o nome esteja em um BillboardGui (outro método comum)
-    local billboard = objeto:FindFirstChildOfClass("BillboardGui", true)
-    if billboard then
-        local textLabel = billboard:FindFirstChildOfClass("TextLabel", true)
-        if textLabel and textLabel.Text == nomeAlvo then
-            print("🚨 A Undine apareceu (detectada via BillboardGui)!")
-            return true
+
+    -- 2. Procura dentro de tudo (Humanoid, Labels, Partes)
+    for _, descendente in ipairs(objeto:GetDescendants()) do
+        if descendente:IsA("Humanoid") and descendente.DisplayName == nomeAlvo then
+            destacarMonstro(objeto)
+            break
+        elseif descendente:IsA("TextLabel") and descendente.Text == nomeAlvo then
+            destacarMonstro(objeto)
+            break
         end
     end
 end
 
--- Monitora novos monstros na pasta
+-- Monitorar novos monstros
 ClientMonsters.ChildAdded:Connect(function(child)
-    -- Primeiro filtramos se é um "Monster_..."
-    if string.find(child.Name, "Monster_") then
-        verificarSeEhUndine(child)
-    end
+    -- Pequeno delay porque o Roblox as vezes spawna o modelo vazio e carrega os filhos depois
+    task.wait(0.5)
+    checarTudo(child)
 end)
 
--- Verifica se ela já está lá quando o script inicia
+-- Checar quem já está lá
 for _, atual in ipairs(ClientMonsters:GetChildren()) do
-    if string.find(atual.Name, "Monster_") then
-        verificarSeEhUndine(atual)
-    end
+    checarTudo(atual)
 end
