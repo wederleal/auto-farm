@@ -1,49 +1,46 @@
 local Players = game:GetService("Players")
-local ClientMonsters = workspace:GetService("Workspace"):WaitForChild("ClientMonsters")
+local lp = Players.LocalPlayer
+local v3 = Vector3.new
 
-local player = Players.LocalPlayer
-local velocidade = 70 -- Aumentei para 70 para ser mais eficiente
-local distanciaDeParada = 3 -- Distância para os pets atacarem
+-- Configurações
+local velocidade = 80 -- Aumente se quiser ir mais rápido
+local pasta = workspace:WaitForChild("ClientMonsters")
 
-local function irAteOMonstro()
-    while true do
-        -- Busca o monstro mais próximo ou o primeiro da lista
-        local monstro = ClientMonsters:FindFirstChildOfClass("Model") or ClientMonsters:FindFirstChildOfClass("Part")
+print("🔥 Script de Auto-Farm Total Iniciado")
 
-        if monstro then
-            local rootPart = monstro:FindFirstChild("HumanoidRootPart") or monstro.PrimaryPart or monstro:FindFirstChildOfClass("Part")
-            
-            -- Loop de perseguição enquanto o monstro existir na pasta
-            while monstro and monstro.Parent == ClientMonsters do
-                local myRoot = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
-                if not myRoot or not rootPart then break end
-
-                local alvoPos = rootPart.Position
-                local minhaPos = myRoot.Position
-                local direcao = (alvoPos - minhaPos)
-                local distancia = direcao.Magnitude
-
-                -- Se ainda estiver longe, continua movendo
-                if distancia > distanciaDeParada then
-                    -- Move o CFrame suavemente na direção do monstro
-                    myRoot.CFrame = CFrame.new(minhaPos + (direcao.Unit * (velocidade * task.wait())), alvoPos)
-                else
-                    -- Se chegou perto, apenas encara o monstro e espera ele morrer
-                    myRoot.CFrame = CFrame.new(minhaPos, alvoPos)
-                    task.wait() 
-                end
-                
-                -- Se o monstro sumir durante o trajeto, sai deste loop interno
-                if not monstro:IsDescendantOf(ClientMonsters) then break end
-            end
-            print("🎯 Alvo eliminado ou sumiu, procurando próximo...")
-        else
-            task.wait(0.5) -- Espera rápida se a pasta estiver vazia
-        end
-    end
+local function getRoot(char)
+    return char:FindFirstChild("HumanoidRootPart") or char:FindFirstChild("UpperTorso")
 end
 
--- Inicia a perseguição
-task.spawn(irAteOMonstro)
-
-print("🚀 Perseguição em Tempo Real Ativada!")
+task.spawn(function()
+    while task.wait() do
+        -- 1. Tenta achar qualquer monstro na pasta
+        local monstro = pasta:FindFirstChildOfClass("Model") or pasta:FindFirstChildOfClass("Part")
+        
+        if monstro then
+            local targetPart = monstro:FindFirstChild("HumanoidRootPart") or monstro:FindFirstChildOfClass("Part")
+            local char = lp.Character
+            local root = char and getRoot(char)
+            
+            if root and targetPart then
+                -- 2. Enquanto o monstro existir, ele vai te levar até ele
+                while monstro and monstro.Parent == pasta and targetPart.Parent do
+                    local distancia = (root.Position - targetPart.Position).Magnitude
+                    
+                    -- Se estiver longe, move suavemente
+                    if distancia > 4 then
+                        root.Velocity = v3(0,0,0) -- Evita gravidade atrapalhar
+                        root.CFrame = CFrame.new(root.Position + (targetPart.Position - root.Position).Unit * (velocidade * task.wait()), targetPart.Position)
+                    else
+                        -- Se chegou perto, fica em cima dele para os pets atacarem
+                        root.CFrame = targetPart.CFrame * CFrame.new(0, 5, 0)
+                        
+                        -- Simula um clique para ativar os pets/ataque
+                        game:GetService("VirtualUser"):ClickButton1(Vector2.new(0,0))
+                    end
+                    task.wait()
+                end
+            end
+        end
+    end
+end)
