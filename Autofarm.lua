@@ -1,44 +1,48 @@
-local ClientMonsters = workspace:GetService("Workspace"):WaitForChild("ClientMonsters")
-local nomeAlvo = "Undine"
+local TweenService = game:GetService("TweenService")
+local Players = game:GetService("Players")
+local ClientMonsters = workspace:WaitForChild("ClientMonsters")
 
-print("🔍 Script de detecção iniciado...")
+local player = Players.LocalPlayer
+local velocidade = 50 -- Ajuste a velocidade aqui (maior = mais rápido)
 
-local function destacarMonstro(modelo)
-    -- Cria um brilho ao redor do monstro para você ver através das paredes
-    local highlight = Instance.new("Highlight")
-    highlight.FillColor = Color3.fromRGB(255, 0, 0) -- Vermelho
-    highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
-    highlight.Parent = modelo
-    print("🎯 UNDINE DETECTADA: " .. modelo.Name)
+local function getTweenTime(distancia)
+    return distancia / velocidade
 end
 
-local function checarTudo(objeto)
-    -- 1. Checa o nome do próprio objeto
-    if string.find(objeto.Name, nomeAlvo) then
-        destacarMonstro(objeto)
-        return
-    end
+local function irAteOMonstro()
+    while true do
+        -- Busca o primeiro monstro disponível na pasta
+        local monstro = ClientMonsters:FindFirstChildOfClass("Model") or ClientMonsters:FindFirstChildOfClass("Part")
 
-    -- 2. Procura dentro de tudo (Humanoid, Labels, Partes)
-    for _, descendente in ipairs(objeto:GetDescendants()) do
-        if descendente:IsA("Humanoid") and descendente.DisplayName == nomeAlvo then
-            destacarMonstro(objeto)
-            break
-        elseif descendente:IsA("TextLabel") and descendente.Text == nomeAlvo then
-            destacarMonstro(objeto)
-            break
+        if monstro then
+            local rootPart = monstro:FindFirstChild("HumanoidRootPart") or monstro.PrimaryPart or monstro:FindFirstChildOfClass("Part")
+            local myRoot = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+
+            if rootPart and myRoot then
+                -- Calcula distância e tempo
+                local distancia = (myRoot.Position - rootPart.Position).Magnitude
+                local info = TweenInfo.new(getTweenTime(distancia), Enum.EasingStyle.Linear)
+                
+                -- Cria e executa o movimento
+                local tween = TweenService:Create(myRoot, info, {CFrame = rootPart.CFrame * CFrame.new(0, 0, 3)})
+                tween:Play()
+
+                -- Espera o monstro morrer/sumir ou o tween acabar
+                repeat 
+                    task.wait(0.1) 
+                until not monstro:IsDescendantOf(ClientMonsters) or not monstro.Parent
+                
+                tween:Cancel() -- Para o movimento se o monstro sumir antes de chegar
+                print("Monstro derrotado ou sumiu, buscando próximo...")
+            end
+        else
+            -- Se não houver monstro, espera um pouco antes de checar de novo
+            task.wait(1)
         end
     end
 end
 
--- Monitorar novos monstros
-ClientMonsters.ChildAdded:Connect(function(child)
-    -- Pequeno delay porque o Roblox as vezes spawna o modelo vazio e carrega os filhos depois
-    task.wait(0.5)
-    checarTudo(child)
-end)
+-- Inicia o loop em uma thread separada
+task.spawn(irAteOMonstro)
 
--- Checar quem já está lá
-for _, atual in ipairs(ClientMonsters:GetChildren()) do
-    checarTudo(atual)
-end
+print("🚀 Script de Auto-Tween ativado!")
